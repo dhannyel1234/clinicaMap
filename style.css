@@ -665,3 +665,138 @@ html, body {
 ::-webkit-scrollbar-track { background: var(--gray-100); }
 ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gray-500); }
+
+/* ══════════════════════════════════════════════
+   MOBILE / RESPONSIVE
+   Breakpoints: tablet ≤ 900px | mobile ≤ 600px
+══════════════════════════════════════════════ */
+
+/* ── tablet ── */
+@media (max-width: 900px) {
+  :root {
+    --header-h: 56px;
+    --page-h:   56px;
+    --footer-h: 80px;
+  }
+
+  /* Navbar: esconde labels de texto, mantém ícones */
+  .navbar-nav .nav-item span,
+  .navbar-nav .nav-item { font-size: 0; padding: 8px 10px; }
+  .navbar-nav .nav-item svg { display: block; }
+  .navbar-user span { display: none; }
+  .brand-sub { display: none; }
+  .brand-name { font-size: 15px; }
+
+  /* Page header: botões menores */
+  .page-actions .btn { padding: 7px 12px; font-size: 12px; }
+  .page-title-block h1 { font-size: 16px; }
+  .page-title-block p  { display: none; }
+
+  /* Workspace row */
+  .workspace-row { flex-direction: column; }
+
+  /* Side panel vira bottom sheet */
+  .side-panel {
+    width: 100%;
+    max-height: 320px;
+    border-left: none;
+    border-top: 2px solid var(--gray-200);
+    overflow-y: auto;
+  }
+
+  /* Stats footer: scroll horizontal */
+  .stats-footer {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  .stat-card { min-width: 130px; padding: 0 14px; }
+  .stat-number { font-size: 20px; }
+}
+
+/* ── mobile ── */
+@media (max-width: 600px) {
+  :root {
+    --header-h: 52px;
+    --page-h:   52px;
+    --footer-h: 72px;
+  }
+
+  /* Navbar: só logo + user */
+  .navbar { padding: 0 12px; gap: 10px; }
+  .navbar-nav { display: none; }
+  .navbar-user svg:last-child { display: none; }
+
+  /* Page header */
+  .page-header { padding: 0 12px; }
+  .page-title-block svg { display: none; }
+  .page-title-block h1 { font-size: 15px; }
+  .page-actions { gap: 6px; }
+  .page-actions .btn { padding: 6px 10px; font-size: 11px; gap: 4px; }
+  .page-actions .btn svg { display: none; }
+
+  /* Toolbar de edição: scroll horizontal */
+  .edit-toolbar {
+    padding: 0 8px;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+  .tool-btn  { font-size: 11px; padding: 5px 8px; }
+  .snap-select { font-size: 11px; }
+
+  /* Workspace */
+  .workspace {
+    height: calc(100dvh - var(--header-h) - var(--page-h) - var(--footer-h));
+  }
+
+  /* Side panel: menor em mobile */
+  .side-panel { max-height: 260px; }
+  .side-panel-body { padding: 10px; }
+
+  /* Zoom controls: menor */
+  .zoom-controls { bottom: 8px; right: 8px; padding: 4px; }
+  .zoom-btn { width: 24px; height: 24px; font-size: 14px; }
+
+  /* Stats footer: compacto */
+  .stats-footer { --footer-h: 72px; }
+  .stat-card { min-width: 100px; padding: 0 10px; gap: 8px; }
+  .stat-icon { width: 36px; height: 36px; border-radius: 8px; }
+  .stat-number { font-size: 18px; }
+  .stat-label  { font-size: 10px; }
+
+  /* Cards de quarto: texto menor */
+  .room-name  { font-size: 10px; }
+  .room-badge { font-size: 9px; padding: 1px 6px; }
+  .room-guest { font-size: 9px; }
+  .beds-count { font-size: 8px; }
+
+  /* Modal */
+  .modal { width: 95vw; }
+}
+
+/* ── Touch: adiciona área de toque mínima ── */
+@media (pointer: coarse) {
+  .btn, .tool-btn, .zoom-btn, .beds-qty-btn, .bed-toggle-btn,
+  .ctx-item, .type-btn, .nav-item {
+    min-height: 44px;
+  }
+  .zoom-btn { width: 36px; height: 36px; }
+
+  /* Alças de redimensionar e rotacionar maiores no touch */
+  .resize-handle { width: 16px; height: 16px; }
+  .rotate-handle { width: 28px; height: 28px; font-size: 16px; top: -30px; }
+
+  /* Painel lateral no touch: sempre visível se elemento selecionado */
+  .side-panel { max-height: 50vh; }
+}
+
+/* ── Utility: usa 100dvh em browsers modernos ── */
+@supports (height: 100dvh) {
+  .workspace {
+    height: calc(100dvh - var(--header-h) - var(--page-h) - var(--footer-h));
+  }
+}
+
+/* ── Touch events no canvas ── */
+.map-canvas-outer { touch-action: none; }

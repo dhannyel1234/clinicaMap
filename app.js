@@ -34,10 +34,45 @@ const modalCancel   = document.getElementById('modalCancel');
 const modalConfirm  = document.getElementById('modalConfirm');
 
 /* ── PERSISTÊNCIA ── */
+
+// Detecta se está rodando via servidor (http) ou arquivo local (file://)
+const IS_SERVER = location.protocol === 'http:' || location.protocol === 'https:';
+const API_URL   = IS_SERVER ? (location.origin + '/api/mapa') : null;
+
+// Salva localmente E no servidor se disponível
 function saveLocal() {
   localStorage.setItem('clinic_map_elements', JSON.stringify(state.elements));
   localStorage.setItem('clinic_map_nextId', String(state.nextId));
 }
+
+async function saveToServer() {
+  if (!API_URL) return false;
+  try {
+    const payload = { version:'1.0', savedAt: new Date().toISOString(), nextId: state.nextId, elements: state.elements };
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return r.ok;
+  } catch(e) { return false; }
+}
+
+async function loadFromServer() {
+  if (!API_URL) return false;
+  try {
+    const r = await fetch(API_URL + '?t=' + Date.now());
+    if (!r.ok) return false;
+    const data = await r.json();
+    if (!data.elements) return false;
+    state.elements = data.elements;
+    state.nextId   = data.nextId || (state.elements.length + 1);
+    // Espelha no localStorage deste dispositivo também
+    saveLocal();
+    return true;
+  } catch(e) { return false; }
+}
+
 function loadLocal() {
   try {
     const raw = localStorage.getItem('clinic_map_elements');
@@ -50,6 +85,7 @@ function loadLocal() {
   } catch(e) { console.warn('LocalStorage load failed', e); }
   return false;
 }
+
 function exportToFile() {
   const payload = { version:'1.0', savedAt: new Date().toISOString(), nextId: state.nextId, elements: state.elements };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
@@ -59,30 +95,35 @@ function exportToFile() {
   URL.revokeObjectURL(url);
   showToast('✓ mapa-clinica.json baixado!');
 }
+
 function importFromFile() {
   const input = document.createElement('input');
   input.type = 'file'; input.accept = '.json,application/json';
   input.addEventListener('change', () => {
     const file = input.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
         if (!data.elements) throw new Error('Arquivo inválido');
         state.elements = data.elements;
         state.nextId = data.nextId || (state.elements.length + 1);
-        saveLocal(); renderAll(); updateStats();
-        showToast('✓ Mapa importado!');
+        saveLocal();
+        // Salva no servidor para todos os dispositivos verem
+        const ok = await saveToServer();
+        renderAll(); updateStats();
+        showToast(ok ? '✓ Mapa importado e sincronizado!' : '✓ Mapa importado (somente local)');
       } catch(err) { showToast('Erro: ' + err.message, 4000); }
     };
     reader.readAsText(file);
   });
   input.click();
 }
+
 let _autoSaveTimer = null;
 function autoSaveLocal() {
   clearTimeout(_autoSaveTimer);
-  _autoSaveTimer = setTimeout(saveLocal, 800);
+  _autoSaveTimer = setTimeout(() => { saveLocal(); saveToServer(); }, 1000);
 }
 
 /* ── DEFAULT LAYOUT ── */
@@ -161,11 +202,20 @@ function renderElement(el) {
     addRotateHandle(div, el);
   }
 
-  /* clique → painel lateral */
+  /* clique → painel lateral (mouse e touch) */
   if (el.type === 'room') {
-    div.addEventListener('click', function(e) {
+    function handleRoomTap(e) {
       if (div.dataset.wasDragged === 'true') { div.dataset.wasDragged='false'; return; }
       e.stopPropagation(); selectElement(el.id);
+    }
+    div.addEventListener('click', handleRoomTap);
+    // Touch: tap rápido sem arrastar
+    var _tapStart = 0;
+    div.addEventListener('touchstart', function(){ _tapStart = Date.now(); }, {passive:true});
+    div.addEventListener('touchend', function(e){
+      if (Date.now() - _tapStart < 300 && div.dataset.wasDragged !== 'true') {
+        e.preventDefault(); e.stopPropagation(); selectElement(el.id);
+      }
     });
   }
 
@@ -239,33 +289,53 @@ function buildCorredorHTML(el) {
 /* ── DRAG ── */
 var isDraggingElement = false;
 
+function getTouchOrMouse(e) {
+  if (e.touches && e.touches.length > 0) return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+  return { clientX: e.clientX, clientY: e.clientY };
+}
+
 function addDragHandlers(div, el) {
   div.style.cursor = 'grab';
-  div.addEventListener('mousedown', function(e) {
+
+  function startDrag(e) {
     if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-handle')) return;
-    if (e.button !== 0) return;
-    e.stopPropagation();
+    if (e.type === 'mousedown' && e.button !== 0) return;
+    if (e.type === 'mousedown') e.stopPropagation();
+    if (e.type === 'touchstart') e.stopPropagation();
+
     isDraggingElement = true;
-    var sx=e.clientX, sy=e.clientY, ox=el.x, oy=el.y, moved=false;
-    div.style.cursor = 'grabbing';
+    var pt = getTouchOrMouse(e);
+    var sx=pt.clientX, sy=pt.clientY, ox=el.x, oy=el.y, moved=false;
+    if (e.type === 'mousedown') div.style.cursor='grabbing';
+
     function onMove(ev) {
-      var dx=(ev.clientX-sx)/state.zoom, dy=(ev.clientY-sy)/state.zoom;
+      var p = getTouchOrMouse(ev);
+      var dx=(p.clientX-sx)/state.zoom, dy=(p.clientY-sy)/state.zoom;
       if (!moved && Math.abs(dx)<4 && Math.abs(dy)<4) return;
       moved=true; div.classList.add('dragging');
       var nx=ox+dx, ny=oy+dy;
       if (state.snapEnabled) { nx=Math.round(nx/state.snapSize)*state.snapSize; ny=Math.round(ny/state.snapSize)*state.snapSize; }
       nx=Math.max(0,nx); ny=Math.max(0,ny);
       el.x=nx; el.y=ny; div.style.left=nx+'px'; div.style.top=ny+'px';
+      if (ev.cancelable) ev.preventDefault();
     }
     function onUp() {
-      isDraggingElement=false; div.classList.remove('dragging'); div.style.cursor='grab';
+      isDraggingElement=false; div.classList.remove('dragging');
+      if (e.type==='mousedown') div.style.cursor='grab';
       if (moved) { div.dataset.wasDragged='true'; autoSaveLocal(); }
       document.removeEventListener('mousemove',onMove);
       document.removeEventListener('mouseup',onUp);
+      document.removeEventListener('touchmove',onMove);
+      document.removeEventListener('touchend',onUp);
     }
     document.addEventListener('mousemove',onMove);
     document.addEventListener('mouseup',onUp);
-  });
+    document.addEventListener('touchmove',onMove,{passive:false});
+    document.addEventListener('touchend',onUp);
+  }
+
+  div.addEventListener('mousedown', startDrag);
+  div.addEventListener('touchstart', startDrag, {passive:true});
 }
 
 /* ── RESIZE ── */
@@ -311,19 +381,39 @@ function addRotateHandle(div, el) {
 /* ── PAN & ZOOM ── */
 var isPanning=false, panStart={x:0,y:0};
 
+function startPan(clientX, clientY) {
+  isPanning=true;
+  panStart={x:clientX-state.panX, y:clientY-state.panY};
+  canvasOuter.classList.add('panning');
+}
+
 canvasOuter.addEventListener('mousedown', function(e) {
   if (isDraggingElement) return;
-  if (e.button===1) {
-    e.preventDefault(); isPanning=true;
-    panStart={x:e.clientX-state.panX, y:e.clientY-state.panY};
-    canvasOuter.classList.add('panning'); return;
-  }
+  if (e.button===1) { e.preventDefault(); startPan(e.clientX, e.clientY); return; }
   if (e.button!==0) return;
   if (state.editMode && e.target.closest('.map-element')) return;
-  e.preventDefault(); isPanning=true;
-  panStart={x:e.clientX-state.panX, y:e.clientY-state.panY};
-  canvasOuter.classList.add('panning');
+  e.preventDefault(); startPan(e.clientX, e.clientY);
 });
+
+// Touch pan (1 dedo na área vazia)
+canvasOuter.addEventListener('touchstart', function(e) {
+  if (isDraggingElement) return;
+  if (e.touches.length !== 1) return;
+  if (state.editMode && e.target.closest('.map-element')) return;
+  var t=e.touches[0];
+  startPan(t.clientX, t.clientY);
+}, {passive:true});
+
+canvasOuter.addEventListener('touchmove', function(e) {
+  if (!isPanning || isDraggingElement || e.touches.length!==1) return;
+  var t=e.touches[0];
+  state.panX=t.clientX-panStart.x; state.panY=t.clientY-panStart.y;
+  updateCanvas();
+  if (e.cancelable) e.preventDefault();
+}, {passive:false});
+
+canvasOuter.addEventListener('touchend', function() { isPanning=false; canvasOuter.classList.remove('panning'); });
+
 document.addEventListener('mousemove', function(e) {
   if (!isPanning || isDraggingElement) return;
   state.panX=e.clientX-panStart.x; state.panY=e.clientY-panStart.y; updateCanvas();
@@ -331,6 +421,20 @@ document.addEventListener('mousemove', function(e) {
 document.addEventListener('mouseup', function() { isPanning=false; canvasOuter.classList.remove('panning'); });
 canvasOuter.addEventListener('wheel', function(e) {
   e.preventDefault(); setZoom(state.zoom+(e.deltaY>0?-0.08:0.08));
+}, {passive:false});
+
+// Pinch to zoom (2 dedos)
+var _lastPinchDist = 0;
+canvasOuter.addEventListener('touchstart', function(e) {
+  if (e.touches.length===2) { _lastPinchDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); }
+}, {passive:true});
+canvasOuter.addEventListener('touchmove', function(e) {
+  if (e.touches.length===2) {
+    var dist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    if (_lastPinchDist > 0) setZoom(state.zoom * (dist/_lastPinchDist));
+    _lastPinchDist = dist;
+    if (e.cancelable) e.preventDefault();
+  }
 }, {passive:false});
 
 function setZoom(z) { state.zoom=Math.min(2,Math.max(0.3,z)); zoomLevel.textContent=Math.round(state.zoom*100)+'%'; updateCanvas(); }
@@ -686,11 +790,18 @@ btnZoomIn.addEventListener('click',    function(){ setZoom(state.zoom+0.1); });
 btnZoomOut.addEventListener('click',   function(){ setZoom(state.zoom-0.1); });
 btnZoomReset.addEventListener('click', function(){ state.zoom=1; state.panX=20; state.panY=20; setZoom(1); });
 
-btnSave.addEventListener('click', function(){ saveLocal(); exportToFile(); });
-btnRefresh.addEventListener('click', function(){
+btnSave.addEventListener('click', async function(){
+  saveLocal();
+  const ok = await saveToServer();
+  exportToFile();
+  showToast(ok ? '✓ Salvo e sincronizado com todos os dispositivos!' : '✓ Salvo localmente + JSON baixado');
+});
+btnRefresh.addEventListener('click', async function(){
   btnRefresh.disabled=true;
-  if (!loadLocal()) buildDefaultLayout();
-  renderAll(); btnRefresh.disabled=false; showToast('Mapa atualizado');
+  const ok = await loadFromServer();
+  if (!ok) { if (!loadLocal()) buildDefaultLayout(); }
+  renderAll(); btnRefresh.disabled=false;
+  showToast(ok ? '✓ Mapa sincronizado do servidor' : 'Mapa carregado do cache local');
 });
 
 /* ── TOAST ── */
@@ -711,8 +822,13 @@ function escHtml(str) {
 }
 
 /* ── BOOT ── */
-function boot() {
-  if (!loadLocal()) buildDefaultLayout();
+async function boot() {
+  // Tenta carregar do servidor (global, todos os dispositivos)
+  const fromServer = await loadFromServer();
+  if (!fromServer) {
+    // Fallback: localStorage deste dispositivo
+    if (!loadLocal()) buildDefaultLayout();
+  }
   renderAll(); renderGrid(); updateCanvas();
 }
 boot();
