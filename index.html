@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clínica – Painel Administrativo</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Supabase CDN removido — sistema usa localStorage + arquivo JSON -->
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     HEADER / NAVBAR
+═══════════════════════════════════════════ -->
+<header class="navbar">
+  <div class="navbar-brand">
+    <div class="brand-logo">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="6" fill="white" fill-opacity="0.2"/>
+        <path d="M16 6v20M6 16h20" stroke="white" stroke-width="3" stroke-linecap="round"/>
+        <path d="M8 10 Q16 4 24 10" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <span class="brand-name">Clínica</span>
+      <span class="brand-sub">Painel Administrativo</span>
+    </div>
+  </div>
+
+  <nav class="navbar-nav">
+    <a href="#" class="nav-item active">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Mapa da Clínica
+    </a>
+    <a href="#" class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      Pacientes
+    </a>
+    <a href="#" class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      Relatórios
+    </a>
+    <a href="#" class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+      Configurações
+    </a>
+  </nav>
+
+  <div class="navbar-user">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    <span>Administrador</span>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════
+     PAGE HEADER
+═══════════════════════════════════════════ -->
+<div class="page-header">
+  <div class="page-title-block">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e40af" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    <div>
+      <h1>Mapa da Clínica</h1>
+      <p>Visualize e gerencie os quartos da clínica</p>
+    </div>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-primary" id="btnAddRoom">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Adicionar Quarto
+    </button>
+    <button class="btn btn-secondary" id="btnEditMode">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Modo Edição
+    </button>
+    <button class="btn btn-outline" id="btnRefresh">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Atualizar
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MAIN WORKSPACE
+═══════════════════════════════════════════ -->
+<div class="workspace" id="workspace">
+
+  <!-- TOOLBAR (visible in edit mode) -->
+  <div class="edit-toolbar" id="editToolbar" style="display:none;">
+    <span class="toolbar-label">Adicionar:</span>
+    <button class="tool-btn" data-type="room" title="Quarto">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg> Quarto
+    </button>
+    <button class="tool-btn" data-type="sala" title="Sala">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Sala
+    </button>
+    <button class="tool-btn" data-type="banheiro" title="Banheiro">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6L9 2M15 6L15 2M4 10h16M4 10a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2"/></svg> Banheiro
+    </button>
+    <button class="tool-btn" data-type="recepcao" title="Recepção">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg> Recepção
+    </button>
+    <button class="tool-btn" data-type="corredor" title="Corredor">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="9" width="20" height="6" rx="1"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Corredor
+    </button>
+    <button class="tool-btn" data-type="text" title="Texto">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg> Texto
+    </button>
+    <button class="tool-btn" data-type="hline" title="Linha Horizontal">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="12" x2="22" y2="12"/></svg> Linha H
+    </button>
+    <button class="tool-btn" data-type="vline" title="Linha Vertical">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/></svg> Linha V
+    </button>
+    <div class="toolbar-sep"></div>
+    <label class="tool-toggle">
+      <input type="checkbox" id="chkGrid" /> Grade
+    </label>
+    <label class="tool-toggle">
+      <input type="checkbox" id="chkSnap" checked /> Snap
+    </label>
+    <label class="tool-toggle snap-size-wrap">
+      Snap:
+      <select id="snapSize" class="snap-select">
+        <option value="5">5px</option>
+        <option value="10" selected>10px</option>
+        <option value="20">20px</option>
+        <option value="40">40px</option>
+        <option value="50">50px</option>
+      </select>
+    </label>
+    <div class="toolbar-sep"></div>
+    <label class="tool-toggle canvas-size-wrap">
+      Fundo:
+      <select id="canvasSize" class="snap-select">
+        <option value="1200x700">Pequeno</option>
+        <option value="1600x900" selected>Médio</option>
+        <option value="2400x1200">Grande</option>
+        <option value="3200x1800">Extra Grande</option>
+      </select>
+    </label>
+    <div class="toolbar-sep"></div>
+    <button class="tool-btn tool-btn-save" id="btnSave">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Salvar JSON
+    </button>
+    <button class="tool-btn tool-btn-import" id="btnImport">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Carregar JSON
+    </button>
+  </div>
+
+  <!-- MAIN ROW: map canvas + side panel -->
+  <div class="workspace-row" id="workspaceRow">
+
+    <!-- MAP CONTAINER -->
+    <div class="map-wrapper" id="mapWrapper">
+      <!-- Zoom controls -->
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="btnZoomIn" title="Zoom +">+</button>
+        <span class="zoom-level" id="zoomLevel">100%</span>
+        <button class="zoom-btn" id="btnZoomOut" title="Zoom −">−</button>
+        <button class="zoom-btn" id="btnZoomReset" title="Reset">⟳</button>
+      </div>
+
+      <!-- The actual draggable canvas -->
+      <div class="map-canvas-outer" id="mapCanvasOuter">
+        <div class="map-canvas" id="mapCanvas">
+          <!-- Grid overlay -->
+          <svg class="grid-overlay" id="gridOverlay" style="display:none;"></svg>
+          <!-- Elements rendered by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div class="side-panel" id="sidePanel">
+      <div class="side-panel-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <span id="panelTitle">Editar Quarto</span>
+      </div>
+      <div class="side-panel-body" id="panelBody">
+        <!-- Edit form injected by JS -->
+        <div class="panel-idle">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M15 3H9a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p>Clique em um quarto para editar suas informações.</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /workspace-row -->
+
+</div><!-- /workspace -->
+
+<!-- ═══════════════════════════════════════════
+     STATS FOOTER
+═══════════════════════════════════════════ -->
+<footer class="stats-footer">
+  <div class="stat-card">
+    <div class="stat-icon stat-icon-blue">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9V7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2"/><path d="M2 9h20v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9z"/><line x1="12" y1="9" x2="12" y2="22"/></svg>
+    </div>
+    <div>
+      <div class="stat-number" id="statTotal">0</div>
+      <div class="stat-label">Total de Quartos</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon stat-icon-green">
+      <div class="stat-dot green"></div>
+    </div>
+    <div>
+      <div class="stat-number" id="statOccupied">0</div>
+      <div class="stat-label">Ocupados</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon stat-icon-gray">
+      <div class="stat-dot gray"></div>
+    </div>
+    <div>
+      <div class="stat-number" id="statFree">0</div>
+      <div class="stat-label">Livres</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon stat-icon-yellow">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="#f59e0b"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+    </div>
+    <div>
+      <div class="stat-number" id="statSuites">0</div>
+      <div class="stat-label">Suítes</div>
+    </div>
+  </div>
+  <div class="stat-card stat-card-info">
+    <div class="stat-icon stat-icon-blue">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1e40af" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div>
+      <div class="stat-label" style="font-weight:600;color:#1e40af">Camas</div>
+      <div class="stat-number" id="statTotalBeds" style="font-size:20px">0</div>
+      <div class="stat-label" id="statInUseBeds">0 em uso / 0 livres</div>
+    </div>
+  </div>
+  <div class="stat-card stat-card-info">
+    <div class="stat-icon stat-icon-blue">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1e40af" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div>
+      <div class="stat-label" style="font-weight:600;color:#1e40af">Informações</div>
+      <div class="stat-label" id="statInfo">Clique em um quarto para editar suas informações.</div>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════
+     MODAL – ADD / ELEMENT
+═══════════════════════════════════════════ -->
+<div class="modal-backdrop" id="modalBackdrop" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Novo Quarto</h2>
+      <button class="modal-close" id="modalClose">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="modalCancel">Cancelar</button>
+      <button class="btn btn-primary" id="modalConfirm">Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     CONTEXT MENU
+═══════════════════════════════════════════ -->
+<div class="context-menu" id="contextMenu" style="display:none;">
+  <button class="ctx-item" data-action="edit">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    Editar
+  </button>
+  <button class="ctx-item" data-action="duplicate">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    Duplicar
+  </button>
+  <div class="ctx-sep"></div>
+  <button class="ctx-item ctx-item-danger" data-action="delete">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+    Excluir
+  </button>
+</div>
+
+<!-- Scripts -->
+<script src="app.js"></script>
+</body>
+</html>
